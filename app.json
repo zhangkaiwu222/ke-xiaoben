@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "课消本",
+    "slug": "ke-xiaoben",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "kexiaoben",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A5F4A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zhangkaiwu222.kexiaoben",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "zh-Hans",
+        "CFBundleDisplayName": "课消本",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserNotificationsUsageDescription": "用于在计划上课时间到达或课前发送本地提醒。"
+      }
+    },
+    "android": {
+      "package": "com.zhangkaiwu222.kexiaoben",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1A5F4A"
+      },
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "extra": {
+      "privacyPolicyUrl": "https://zhangkaiwu222.github.io/ke-xiaoben/privacy/",
+      "supportUrl": "https://zhangkaiwu222.github.io/ke-xiaoben/support/",
+      "termsUrl": "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+      "eas": {
+        "projectId": "7bedeef6-0776-422d-9240-983829663d58"
+      }
+    },
+    "owner": "zhangkaiwu",
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "defaultChannel": "lesson-reminders",
+          "enableBackgroundRemoteNotifications": false
+        }
+      ]
+    ]
+  }
+}
