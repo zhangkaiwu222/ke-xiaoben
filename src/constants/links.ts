@@ -5,10 +5,10 @@ const extra = Constants.expoConfig?.extra ?? {};
 export const LINKS = {
   privacy:
     (extra.privacyPolicyUrl as string) ||
-    'https://zhangkaiwu222.github.io/ke-xiaoben-site/privacy/',
+    'https://zhangkaiwu222.github.io/ke-xiaoben/privacy/',
   support:
     (extra.supportUrl as string) ||
-    'https://zhangkaiwu222.github.io/ke-xiaoben-site/support/',
+    'https://zhangkaiwu222.github.io/ke-xiaoben/support/',
   terms:
     (extra.termsUrl as string) ||
     'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
