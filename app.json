@@ -2,7 +2,7 @@
   "expo": {
     "name": "课消本",
     "slug": "ke-xiaoben",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,12 +16,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zhangkaiwu222.kexiaoben",
-      "buildNumber": "1",
+      "appleTeamId": "Z4YA476QNG",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "zh-Hans",
         "CFBundleDisplayName": "课消本",
         "ITSAppUsesNonExemptEncryption": false,
         "NSUserNotificationsUsageDescription": "用于在计划上课时间到达或课前发送本地提醒。"
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
       }
     },
     "android": {
@@ -36,8 +44,8 @@
       ]
     },
     "extra": {
-      "privacyPolicyUrl": "https://zhangkaiwu222.github.io/ke-xiaoben/privacy/",
-      "supportUrl": "https://zhangkaiwu222.github.io/ke-xiaoben/support/",
+      "privacyPolicyUrl": "https://zhangkaiwu222.github.io/ke-xiaoben-site/privacy/",
+      "supportUrl": "https://zhangkaiwu222.github.io/ke-xiaoben-site/support/",
       "termsUrl": "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
       "eas": {
         "projectId": "7bedeef6-0776-422d-9240-983829663d58"
@@ -45,6 +53,8 @@
     },
     "owner": "zhangkaiwu",
     "plugins": [
+      "expo-router",
+      "expo-iap",
       [
         "expo-notifications",
         {
