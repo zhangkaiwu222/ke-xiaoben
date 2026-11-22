@@ -37,10 +37,16 @@ workflows:
           echo "--- ios 目录 ---"
           ls -la $CM_BUILD_DIR/ios
           echo "--- xcworkspace ---"
+          # 注意: 此时尚未 pod install, workspace 可能还不存在, 需从 xcodeproj 推导
           WS=$(find $CM_BUILD_DIR/ios -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
-          echo "workspace path: $WS"
-          XCODE_WORKSPACE=$(basename "$WS" .xcworkspace)
-          # scheme 优先取与工程名同名的 .xcscheme，否则用列出schemes的第一个
+          if [ -n "$WS" ]; then
+            XCODE_WORKSPACE=$(basename "$WS" .xcworkspace)
+          else
+            PROJ=$(find $CM_BUILD_DIR/ios -maxdepth 2 -name "*.xcodeproj" -type d | head -1)
+            XCODE_WORKSPACE=$(basename "$PROJ" .xcodeproj)
+          fi
+          echo "workspace name: $XCODE_WORKSPACE"
+          # scheme 优先取与工程名同名的共享 .xcscheme，否则用列出schemes的第一个
           if [ -f "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE.xcodeproj/xcshareddata/xcschemes/$XCODE_WORKSPACE.xcscheme" ]; then
             XCODE_SCHEME=$XCODE_WORKSPACE
           else
