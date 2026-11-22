@@ -89,7 +89,7 @@ export default function StudentDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorTitle}>未找到该学员</Text>
-        <Link href="/students" style={styles.link}>
+        <Link href="/(tabs)/students" style={styles.link}>
           <Text style={styles.linkText}>返回学员列表</Text>
         </Link>
       </View>
@@ -173,7 +173,7 @@ export default function StudentDetailScreen() {
           style: 'destructive',
           onPress: () => {
             deleteStudent(student.id);
-            router.replace('/students');
+            router.replace('/(tabs)/students');
           },
         },
       ],
@@ -198,6 +198,8 @@ export default function StudentDetailScreen() {
           <Text style={styles.editBtnText}>编辑</Text>
         </Pressable>
       </View>
+      {student.subject ? <Text style={styles.subjectTag}>{student.subject}</Text> : null}
+      {student.phone ? <Text style={styles.phoneLine}>📞 {student.phone}</Text> : null}
       {student.note ? <Text style={styles.note}>{student.note}</Text> : null}
 
       <View style={styles.card}>
@@ -229,6 +231,18 @@ export default function StudentDetailScreen() {
         autoCorrect={false}
       />
       <Text style={styles.subLabel}>主题（选填）</Text>
+      {data.settings?.lessonTemplates && data.settings.lessonTemplates.length > 0 ? (
+        <View style={styles.templateRow}>
+          {data.settings.lessonTemplates.map((t) => (
+            <Pressable
+              key={t}
+              style={({ pressed }) => [styles.templateChip, pressed && styles.btnPressed]}
+              onPress={() => setScheduleTitle(t)}>
+              <Text style={styles.templateChipText}>{t}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
       <TextInput
         style={styles.input}
         placeholder="如：力量训练 / 数学冲刺"
@@ -420,6 +434,37 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontWeight: '600',
     fontSize: 14,
+  },
+  subjectTag: {
+    alignSelf: 'flex-start',
+    color: '#3ecf8e',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  phoneLine: {
+    color: '#a8bdb4',
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  templateRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  templateChip: {
+    backgroundColor: '#1a2824',
+    borderWidth: 1,
+    borderColor: '#2d4038',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  templateChipText: {
+    color: '#3ecf8e',
+    fontSize: 13,
+    fontWeight: '600',
   },
   note: {
     color: '#94a3b8',

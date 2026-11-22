@@ -7,10 +7,27 @@ import React, {
   useState,
 } from 'react';
 
+import {
+  FREE_SCHEDULE_DAYS,
+  FREE_STUDENT_LIMIT,
+  PRO_SCHEDULE_DAYS,
+} from '../constants/entitlements';
 import { createId } from '../lib/id';
 import { syncLessonRemindersFromData } from '../lib/lessonReminders';
 import { exportBackupJson, loadAppData, parseBackupJson, saveAppData } from '../lib/storage';
 import type { AppData, Student } from '../types';
+
+export type AddStudentInput = {
+  name: string;
+  initialPurchased: number;
+  note?: string;
+  subject?: string;
+  phone?: string;
+};
+
+export type AddStudentResult =
+  | { ok: true; student: Student }
+  | { ok: false; reason: 'pro_required' | 'invalid' };
 
 const MAX_LEDGER = 200;
 const MAX_SCHEDULE = 100;
@@ -18,6 +35,8 @@ const MAX_SCHEDULE = 100;
 type StudentPatch = {
   name?: string;
   note?: string;
+  subject?: string;
+  phone?: string;
   totalPurchased?: number;
   consumed?: number;
 };
@@ -25,8 +44,12 @@ type StudentPatch = {
 type AppContextValue = {
   ready: boolean;
   data: AppData;
+  isPro: boolean;
+  scheduleHorizonDays: number;
+  canCreateStudent: boolean;
+  canExportCsv: boolean;
   remaining: (s: Student) => number;
-  addStudent: (input: { name: string; initialPurchased: number; note?: string }) => Student;
+  addStudent: (input: AddStudentInput) => AddStudentResult;
   updateStudent: (studentId: string, patch: StudentPatch) => void;
   deleteStudent: (studentId: string) => void;
   consume: (studentId: string, count?: number) => void;
@@ -42,6 +65,9 @@ type AppContextValue = {
   importBackup: (raw: string) => { ok: boolean; reason?: string };
   setLessonReminderEnabled: (enabled: boolean) => void;
   setLessonReminderAdvanceMinutes: (minutes: number) => void;
+  syncProFromStore: (active: boolean, productId?: string) => void;
+  unlockProDemo: () => void;
+  setLessonTemplates: (templates: string[]) => void;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -70,6 +96,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [ready, data]);
 
   const remaining = useCallback((s: Student) => Math.max(0, s.totalPurchased - s.consumed), []);
+
+  const isPro = data.subscription?.isPro === true;
+  const scheduleHorizonDays = isPro ? PRO_SCHEDULE_DAYS : FREE_SCHEDULE_DAYS;
+  const canCreateStudent = isPro || data.students.length < FREE_STUDENT_LIMIT;
+  const canExportCsv = isPro;
+
+  const syncProFromStore = useCallback((active: boolean, productId?: string) => {
+    setData((prev) => {
+      const next: AppData = active
+        ? {
+            ...prev,
+            subscription: { isPro: true, productId, source: 'store' },
+          }
+        : __DEV__ && prev.subscription?.demoUnlockedAt
+          ? prev
+          : { ...prev, subscription: { isPro: false } };
+      void saveAppData(next);
+      return next;
+    });
+  }, []);
+
+  const unlockProDemo = useCallback(() => {
+    if (!__DEV__) return;
+    setData((prev) => {
+      const next: AppData = {
+        ...prev,
+        subscription: {
+          isPro: true,
+          source: 'demo',
+          demoUnlockedAt: new Date().toISOString(),
+        },
+      };
+      void saveAppData(next);
+      return next;
+    });
+  }, []);
+
+  const setLessonTemplates = useCallback(
+    (templates: string[]) => {
+      if (!isPro) return;
+      const cleaned = templates.map((t) => t.trim()).filter(Boolean).slice(0, 12);
+      setData((prev) => {
+        const settings = prev.settings ?? { lessonReminder: { enabled: false, advanceMinutes: 30 } };
+        const next: AppData = {
+          ...prev,
+          settings: { ...settings, lessonTemplates: cleaned },
+        };
+        void saveAppData(next);
+        return next;
+      });
+    },
+    [isPro],
+  );
 
   const setLessonReminderEnabled = useCallback((enabled: boolean) => {
     setData((prev) => {
@@ -106,26 +185,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const addStudent = useCallback((input: { name: string; initialPurchased: number; note?: string }): Student => {
-    const name = input.name.trim();
-    const initialPurchased = Math.max(0, Math.floor(input.initialPurchased));
-    const student: Student = {
-      id: createId(),
-      name: name || '未命名学员',
-      totalPurchased: initialPurchased,
-      consumed: 0,
-      note: (input.note ?? '').trim(),
-      createdAt: new Date().toISOString(),
-      ledger: [],
-      schedule: [],
-    };
-    setData((prev) => {
-      const next = { ...prev, students: [...prev.students, student] };
-      void saveAppData(next);
-      return next;
-    });
-    return student;
-  }, []);
+  const addStudent = useCallback(
+    (input: AddStudentInput): AddStudentResult => {
+      const name = input.name.trim();
+      if (!name) return { ok: false, reason: 'invalid' };
+      if (!isPro && data.students.length >= FREE_STUDENT_LIMIT) {
+        return { ok: false, reason: 'pro_required' };
+      }
+      const initialPurchased = Math.max(0, Math.floor(input.initialPurchased));
+      const student: Student = {
+        id: createId(),
+        name,
+        subject: (input.subject ?? '').trim(),
+        phone: (input.phone ?? '').trim(),
+        totalPurchased: initialPurchased,
+        consumed: 0,
+        note: (input.note ?? '').trim(),
+        createdAt: new Date().toISOString(),
+        ledger: [],
+        schedule: [],
+      };
+      setData((prev) => {
+        const next = { ...prev, students: [...prev.students, student] };
+        void saveAppData(next);
+        return next;
+      });
+      return { ok: true, student };
+    },
+    [data.students.length, isPro],
+  );
 
   const updateStudent = useCallback((studentId: string, patch: StudentPatch) => {
     setData((prev) => {
@@ -133,6 +221,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (s.id !== studentId) return s;
         const name = patch.name !== undefined ? patch.name.trim() : s.name;
         const note = patch.note !== undefined ? patch.note.trim() : s.note;
+        const subject = patch.subject !== undefined ? patch.subject.trim() : s.subject;
+        const phone = patch.phone !== undefined ? patch.phone.trim() : s.phone;
         let totalPurchased =
           patch.totalPurchased !== undefined
             ? Math.max(0, Math.floor(patch.totalPurchased))
@@ -145,6 +235,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...s,
           name: name || '未命名学员',
           note,
+          subject,
+          phone,
           totalPurchased,
           consumed,
           schedule,
@@ -292,6 +384,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ready,
       data,
+      isPro,
+      scheduleHorizonDays,
+      canCreateStudent,
+      canExportCsv,
       remaining,
       addStudent,
       updateStudent,
@@ -305,10 +401,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       importBackup,
       setLessonReminderEnabled,
       setLessonReminderAdvanceMinutes,
+      syncProFromStore,
+      unlockProDemo,
+      setLessonTemplates,
     }),
     [
       ready,
       data,
+      isPro,
+      scheduleHorizonDays,
+      canCreateStudent,
+      canExportCsv,
       remaining,
       addStudent,
       updateStudent,
@@ -322,6 +425,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       importBackup,
       setLessonReminderEnabled,
       setLessonReminderAdvanceMinutes,
+      syncProFromStore,
+      unlockProDemo,
+      setLessonTemplates,
     ]
   );
 

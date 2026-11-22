@@ -1,4 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { colors } from '../src/constants/theme';
 import { useApp } from '../src/context/AppContext';
 import {
   aggregateByStudentMonth,
@@ -48,8 +50,33 @@ function formatLedgerTime(iso: string): string {
 }
 
 export default function StatsScreen() {
-  const { ready, data } = useApp();
+  const router = useRouter();
+  const { ready, data, isPro, canExportCsv } = useApp();
   const [monthKey, setMonthKey] = useState(() => monthKeyFromDate(new Date()));
+  const currentMonth = monthKeyFromDate(new Date());
+
+  const guardMonth = (delta: number) => {
+    const next = shiftMonthKey(monthKey, delta);
+    if (!isPro && next !== currentMonth) {
+      Alert.alert('Pro 功能', '免费版仅可查看当月统计；升级后可切换任意月份并导出 CSV。', [
+        { text: '知道了', style: 'cancel' },
+        { text: '了解 Pro', onPress: () => router.push('/pro') },
+      ]);
+      return;
+    }
+    setMonthKey(next);
+  };
+
+  const guardCsv = (action: () => void) => {
+    if (!canExportCsv) {
+      Alert.alert('Pro 功能', 'CSV 导出为 Pro 专享。', [
+        { text: '取消', style: 'cancel' },
+        { text: '了解 Pro', onPress: () => router.push('/pro') },
+      ]);
+      return;
+    }
+    action();
+  };
 
   const detailRows = useMemo(() => listLedgerInMonth(data, monthKey), [data, monthKey]);
   const aggs = useMemo(() => aggregateByStudentMonth(data, monthKey), [data, monthKey]);
@@ -70,7 +97,7 @@ export default function StatsScreen() {
   if (!ready) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#38bdf8" />
+        <ActivityIndicator size="large" color={colors.brand} />
       </View>
     );
   }
@@ -80,13 +107,13 @@ export default function StatsScreen() {
       <View style={styles.monthBar}>
         <Pressable
           style={({ pressed }) => [styles.monthNav, pressed && styles.pressed]}
-          onPress={() => setMonthKey((k) => shiftMonthKey(k, -1))}>
+          onPress={() => guardMonth(-1)}>
           <Text style={styles.monthNavText}>‹ 上月</Text>
         </Pressable>
         <Text style={styles.monthTitle}>{formatCnMonthLabel(monthKey)}</Text>
         <Pressable
           style={({ pressed }) => [styles.monthNav, pressed && styles.pressed]}
-          onPress={() => setMonthKey((k) => shiftMonthKey(k, 1))}>
+          onPress={() => guardMonth(1)}>
           <Text style={styles.monthNavText}>下月 ›</Text>
         </Pressable>
       </View>
@@ -100,12 +127,12 @@ export default function StatsScreen() {
       <View style={styles.exportRow}>
         <Pressable
           style={({ pressed }) => [styles.exportBtn, pressed && styles.pressed]}
-          onPress={() => shareCsv(buildMonthSummaryCsv(monthKey, aggs), `课消本-${monthKey}-汇总`)}>
+          onPress={() => guardCsv(() => shareCsv(buildMonthSummaryCsv(monthKey, aggs), `课消本-${monthKey}-汇总`))}>
           <Text style={styles.exportBtnText}>分享汇总 CSV</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.exportBtnSecondary, pressed && styles.pressed]}
-          onPress={() => void copyCsv(buildMonthSummaryCsv(monthKey, aggs))}>
+          onPress={() => guardCsv(() => void copyCsv(buildMonthSummaryCsv(monthKey, aggs)))}>
           <Text style={styles.exportBtnSecondaryText}>复制汇总</Text>
         </Pressable>
       </View>
@@ -113,13 +140,15 @@ export default function StatsScreen() {
         <Pressable
           style={({ pressed }) => [styles.exportBtn, pressed && styles.pressed]}
           onPress={() =>
-            shareCsv(buildMonthDetailCsv(monthKey, detailRows), `课消本-${monthKey}-流水`)
+            guardCsv(() =>
+              shareCsv(buildMonthDetailCsv(monthKey, detailRows), `课消本-${monthKey}-流水`),
+            )
           }>
           <Text style={styles.exportBtnText}>分享流水 CSV</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.exportBtnSecondary, pressed && styles.pressed]}
-          onPress={() => void copyCsv(buildMonthDetailCsv(monthKey, detailRows))}>
+          onPress={() => guardCsv(() => void copyCsv(buildMonthDetailCsv(monthKey, detailRows)))}>
           <Text style={styles.exportBtnSecondaryText}>复制流水</Text>
         </Pressable>
       </View>

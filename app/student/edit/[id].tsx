@@ -21,6 +21,8 @@ export default function EditStudentScreen() {
   const [name, setName] = useState('');
   const [purchasedStr, setPurchasedStr] = useState('0');
   const [consumedStr, setConsumedStr] = useState('0');
+  const [subject, setSubject] = useState('');
+  const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
 
   const student = useMemo(
@@ -33,6 +35,8 @@ export default function EditStudentScreen() {
     setName(student.name);
     setPurchasedStr(String(student.totalPurchased));
     setConsumedStr(String(student.consumed));
+    setSubject(student.subject);
+    setPhone(student.phone);
     setNote(student.note);
   }, [student]);
 
@@ -48,7 +52,7 @@ export default function EditStudentScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorTitle}>未找到该学员</Text>
-        <Link href="/students" style={styles.link}>
+        <Link href="/(tabs)/students" style={styles.link}>
           <Text style={styles.linkText}>返回学员列表</Text>
         </Link>
       </View>
@@ -60,6 +64,8 @@ export default function EditStudentScreen() {
     const consumed = Math.max(0, Math.floor(Number.parseInt(consumedStr, 10) || 0));
     updateStudent(student.id, {
       name,
+      subject,
+      phone,
       note,
       totalPurchased,
       consumed,
@@ -79,6 +85,25 @@ export default function EditStudentScreen() {
           placeholderTextColor="#64748b"
           value={name}
           onChangeText={setName}
+        />
+
+        <Text style={styles.label}>科目（选填）</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="数学 / 体能"
+          placeholderTextColor="#64748b"
+          value={subject}
+          onChangeText={setSubject}
+        />
+
+        <Text style={styles.label}>电话（选填）</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="仅存本机"
+          placeholderTextColor="#64748b"
+          keyboardType="phone-pad"
+          value={phone}
+          onChangeText={setPhone}
         />
 
         <Text style={styles.label}>累计购买（节）</Text>

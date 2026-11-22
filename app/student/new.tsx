@@ -1,33 +1,43 @@
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  Pressable,
+  View,
 } from 'react-native';
 
+import { Button } from '../../src/components/ui';
+import { colors, radius, spacing } from '../../src/constants/theme';
 import { useApp } from '../../src/context/AppContext';
 
 export default function NewStudentScreen() {
   const router = useRouter();
   const { addStudent } = useApp();
   const [name, setName] = useState('');
+  const [subject, setSubject] = useState('');
+  const [phone, setPhone] = useState('');
   const [purchasedStr, setPurchasedStr] = useState('0');
   const [note, setNote] = useState('');
 
   const onSave = () => {
     const initialPurchased = Number.parseInt(purchasedStr, 10);
     const n = Number.isFinite(initialPurchased) ? initialPurchased : 0;
-    const student = addStudent({
-      name,
-      initialPurchased: n,
-      note,
-    });
-    router.replace(`/student/${student.id}`);
+    const result = addStudent({ name, subject, phone, initialPurchased: n, note });
+    if (!result.ok) {
+      if (result.reason === 'pro_required') {
+        Alert.alert('需要 Pro', '免费版学员人数已满，升级后可继续添加。', [
+          { text: '取消', style: 'cancel' },
+          { text: '了解 Pro', onPress: () => router.push('/pro') },
+        ]);
+      }
+      return;
+    }
+    router.replace(`/student/${result.student.id}`);
   };
 
   return (
@@ -35,98 +45,85 @@ export default function NewStudentScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.label}>姓名</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="例如：张同学"
-          placeholderTextColor="#64748b"
-          value={name}
-          onChangeText={setName}
-        />
-
-        <Text style={styles.label}>初始课时（节）</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="0"
-          placeholderTextColor="#64748b"
-          keyboardType="number-pad"
-          value={purchasedStr}
-          onChangeText={setPurchasedStr}
-        />
-
-        <Text style={styles.label}>备注（选填）</Text>
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          placeholder="联系方式、课程包说明等"
-          placeholderTextColor="#64748b"
-          value={note}
-          onChangeText={setNote}
-          multiline
-        />
-
-        <Pressable style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]} onPress={onSave}>
-          <Text style={styles.primaryText}>保存</Text>
-        </Pressable>
-
-        <Link href="/students" style={styles.secondary}>
-          <Text style={styles.secondaryText}>取消，返回列表</Text>
-        </Link>
+        <Field label="姓名">
+          <TextInput
+            style={styles.input}
+            placeholder="例如：张同学"
+            placeholderTextColor={colors.inkDim}
+            value={name}
+            onChangeText={setName}
+          />
+        </Field>
+        <Field label="科目（选填）">
+          <TextInput
+            style={styles.input}
+            placeholder="数学 / 体能 / 钢琴"
+            placeholderTextColor={colors.inkDim}
+            value={subject}
+            onChangeText={setSubject}
+          />
+        </Field>
+        <Field label="电话（选填）">
+          <TextInput
+            style={styles.input}
+            placeholder="仅存本机"
+            placeholderTextColor={colors.inkDim}
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
+          />
+        </Field>
+        <Field label="初始课时（节）">
+          <TextInput
+            style={styles.input}
+            placeholder="0"
+            placeholderTextColor={colors.inkDim}
+            keyboardType="number-pad"
+            value={purchasedStr}
+            onChangeText={setPurchasedStr}
+          />
+        </Field>
+        <Field label="备注（选填）">
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            placeholder="课程包说明、上课地点等"
+            placeholderTextColor={colors.inkDim}
+            value={note}
+            onChangeText={setNote}
+            multiline
+          />
+        </Field>
+        <Button label="保存" onPress={onSave} />
+        <View style={{ height: 12 }} />
+        <Button label="取消" variant="ghost" onPress={() => router.back()} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      {children}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  container: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  label: {
-    color: '#94a3b8',
-    fontSize: 14,
-    marginBottom: 8,
-    marginTop: 4,
-  },
+  flex: { flex: 1, backgroundColor: colors.bg },
+  container: { padding: spacing.lg, paddingBottom: 40 },
+  field: { marginBottom: spacing.md },
+  label: { color: colors.inkMuted, fontSize: 14, marginBottom: 8 },
   input: {
-    backgroundColor: '#1e293b',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8fafc',
+    color: colors.ink,
     fontSize: 16,
-    marginBottom: 16,
   },
-  multiline: {
-    minHeight: 88,
-    textAlignVertical: 'top',
-  },
-  primary: {
-    backgroundColor: '#0ea5e9',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  primaryPressed: {
-    opacity: 0.9,
-  },
-  primaryText: {
-    color: '#0f172a',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  secondary: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    color: '#64748b',
-    fontSize: 15,
-  },
+  multiline: { minHeight: 88, textAlignVertical: 'top' },
 });

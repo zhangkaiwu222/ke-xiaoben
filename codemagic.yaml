@@ -1,0 +1,99 @@
+# Codemagic CI — 课消本 iOS 构建并发布到 TestFlight
+# 文档: https://docs.codemagic.io/yaml/building-a-react-native-app/
+#
+# 前置: 在 Codemagic 团队设置 → Integrations → Developer Portal 添加 ASC API 密钥
+#       集成名称必须与下方 integrations.app_store_connect 的值一致（此处为 kexiaoben_asc）
+#       密钥需 App Manager 权限，并上传对应 Distribution 证书 + App Store provisioning profile
+
+workflows:
+  ios-testflight:
+    name: 课消本 iOS → TestFlight
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    # ASC API 密钥在 Codemagic 团队集成里的名称
+    integrations:
+      app_store_connect: kexiaoben_asc
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.zhangkaiwu222.kexiaoben
+      vars:
+        APP_STORE_APPLE_ID: 6832416586
+        BUNDLE_ID: com.zhangkaiwu222.kexiaoben
+      node: 20
+      xcode: latest
+
+    scripts:
+      - name: 安装 npm 依赖
+        script: |
+          npm ci
+
+      - name: Expo prebuild 生成 iOS 原生工程
+        script: |
+          npx expo prebuild --platform ios --clean
+
+      - name: 探测 Xcode workspace 与 scheme 名称
+        script: |
+          echo "--- ios 目录 ---"
+          ls -la $CM_BUILD_DIR/ios
+          echo "--- xcworkspace ---"
+          WS=$(find $CM_BUILD_DIR/ios -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
+          echo "workspace path: $WS"
+          XCODE_WORKSPACE=$(basename "$WS" .xcworkspace)
+          # scheme 优先取与工程名同名的 .xcscheme，否则用列出schemes的第一个
+          if [ -f "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE.xcodeproj/xcshareddata/xcschemes/$XCODE_WORKSPACE.xcscheme" ]; then
+            XCODE_SCHEME=$XCODE_WORKSPACE
+          else
+            XCODE_SCHEME=$(find $CM_BUILD_DIR/ios -name "*.xcscheme" | head -1 | xargs basename | sed 's/.xcscheme//')
+          fi
+          echo "XCODE_WORKSPACE=$XCODE_WORKSPACE" >> $CM_ENV
+          echo "XCODE_SCHEME=$XCODE_SCHEME" >> $CM_ENV
+          echo "探测结果: workspace=$XCODE_WORKSPACE scheme=$XCODE_SCHEME"
+
+      - name: 设置 ITSAppUsesNonExemptEncryption（避免每次上传要求出口合规问答）
+        script: |
+          PLIST=$(find $CM_BUILD_DIR/ios -name "Info.plist" -maxdepth 3 | head -1)
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null || true
+
+      - name: 安装 CocoaPods 依赖
+        script: |
+          cd $CM_BUILD_DIR/ios && pod install --repo-update
+
+      - name: 配置代码签名（自动匹配证书与描述文件）
+        script: xcode-project use-profiles
+
+      - name: 递增构建号（基于 App Store 最新版本）
+        script: |
+          cd $CM_BUILD_DIR/ios
+          LATEST=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
+          echo "线上最新构建号: $LATEST"
+          NEW=$((LATEST + 1))
+          echo "新构建号: $NEW"
+          agvtool new-version -all "$NEW"
+
+      - name: 构建 IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE.xcworkspace" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        # 第一步先发 TestFlight 验证，不自动提审
+        submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - zhangkaiwu555@gmail.com
+        notify:
+          success: true
+          failure: true

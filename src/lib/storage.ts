@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { AppData, AppSettings, LessonLedgerEntry, ScheduledLesson, Student } from '../types';
+import type { AppData, AppSettings, LessonLedgerEntry, ScheduledLesson, Student, SubscriptionState } from '../types';
 
 const KEY = 'kexiaoben-app-v1';
 
@@ -26,11 +26,16 @@ function normalizeSettings(raw: unknown): AppSettings {
     typeof lr.advanceMinutes === 'number' && Number.isFinite(lr.advanceMinutes)
       ? Math.max(0, Math.min(24 * 60, Math.floor(lr.advanceMinutes)))
       : base.lessonReminder.advanceMinutes;
+  const templatesRaw = o.lessonTemplates;
+  const lessonTemplates = Array.isArray(templatesRaw)
+    ? templatesRaw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).slice(0, 12)
+  : undefined;
   return {
     lessonReminder: {
       enabled,
       advanceMinutes: adv,
     },
+    ...(lessonTemplates?.length ? { lessonTemplates } : {}),
   };
 }
 
@@ -69,13 +74,26 @@ function normalizeStudent(raw: unknown): Student | null {
   const consumed =
     typeof s.consumed === 'number' && Number.isFinite(s.consumed) ? Math.max(0, Math.floor(s.consumed)) : 0;
   const note = typeof s.note === 'string' ? s.note : '';
+  const subject = typeof s.subject === 'string' ? s.subject : '';
+  const phone = typeof s.phone === 'string' ? s.phone : '';
   const createdAt = typeof s.createdAt === 'string' ? s.createdAt : new Date().toISOString();
   const ledgerRaw = Array.isArray(s.ledger) ? s.ledger : [];
   const ledger = ledgerRaw.map(normalizeLedgerEntry).filter((x): x is LessonLedgerEntry => x !== null);
   const scheduleRaw = Array.isArray(s.schedule) ? s.schedule : [];
   const schedule = scheduleRaw.map(normalizeScheduledLesson).filter((x): x is ScheduledLesson => x !== null);
   if (!id) return null;
-  return { id, name, totalPurchased, consumed, note, createdAt, ledger, schedule };
+  return { id, name, subject, phone, totalPurchased, consumed, note, createdAt, ledger, schedule };
+}
+
+function normalizeSubscription(raw: unknown): SubscriptionState {
+  if (!raw || typeof raw !== 'object') return { isPro: false };
+  const o = raw as Record<string, unknown>;
+  return {
+    isPro: o.isPro === true,
+    productId: typeof o.productId === 'string' ? o.productId : undefined,
+    source: o.source === 'store' || o.source === 'demo' ? o.source : undefined,
+    demoUnlockedAt: typeof o.demoUnlockedAt === 'string' ? o.demoUnlockedAt : undefined,
+  };
 }
 
 function migrateAppData(parsed: AppData): AppData {
@@ -83,7 +101,8 @@ function migrateAppData(parsed: AppData): AppData {
     .map(normalizeStudent)
     .filter((x): x is Student => x !== null);
   const settings = normalizeSettings(parsed.settings);
-  return { students, settings };
+  const subscription = normalizeSubscription(parsed.subscription);
+  return { students, settings, subscription };
 }
 
 export async function loadAppData(): Promise<AppData> {

@@ -50,6 +50,28 @@ export function countUpcomingLessons(data: AppData, days: number, fromMs = Date.
   return listUpcomingLessons(data.students, { fromMs, days }).length;
 }
 
+/** 今日 0:00–23:59 的排课 */
+export function listTodaysLessons(students: Student[], now = new Date()): UpcomingLessonRow[] {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const end = start + DAY_MS;
+  const rows: UpcomingLessonRow[] = [];
+  for (const s of students) {
+    const schedule = Array.isArray(s.schedule) ? s.schedule : [];
+    for (const lesson of schedule) {
+      const t = new Date(lesson.scheduledAt).getTime();
+      if (Number.isNaN(t) || t < start || t >= end) continue;
+      rows.push({
+        studentId: s.id,
+        studentName: s.name,
+        lesson,
+        scheduledMs: t,
+      });
+    }
+  }
+  rows.sort((a, b) => a.scheduledMs - b.scheduledMs);
+  return rows;
+}
+
 /** 剩余课时不超过阈值的学员人数 */
 export function countLowRemainingStudents(
   students: Student[],

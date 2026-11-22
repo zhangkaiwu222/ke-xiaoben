@@ -5,3 +5,6 @@ dist/
 .DS_Store
 secrets/
 *.p8
+build-*.ipa
+.workbuddy/
+ios/

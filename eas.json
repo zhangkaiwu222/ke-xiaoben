@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "promptToConfigurePushNotifications": false
   },
   "build": {
     "development": {
@@ -28,9 +29,11 @@
   "submit": {
     "production": {
       "ios": {
+        "ascAppId": "6832416586",
         "ascApiKeyPath": "./secrets/AuthKey_P8W8B6ZTXW.p8",
         "ascApiKeyId": "P8W8B6ZTXW",
-        "ascApiKeyIssuerId": "eee92558-8a20-44d9-9ca3-49dbf97b9d15"
+        "ascApiKeyIssuerId": "eee92558-8a20-44d9-9ca3-49dbf97b9d15",
+        "appleTeamId": "Z4YA476QNG"
       }
     }
   }

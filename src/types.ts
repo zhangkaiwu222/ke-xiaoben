@@ -24,6 +24,10 @@ export type ScheduledLesson = {
 export type Student = {
   id: string;
   name: string;
+  /** 科目 / 课程类型（选填） */
+  subject: string;
+  /** 联系电话（选填，仅存本机） */
+  phone: string;
   /** 累计购入节数 */
   totalPurchased: number;
   /** 已消课节数 */
@@ -44,12 +48,22 @@ export type LessonReminderSettings = {
   advanceMinutes: number;
 };
 
+export type SubscriptionState = {
+  isPro: boolean;
+  productId?: string;
+  source?: 'store' | 'demo';
+  demoUnlockedAt?: string;
+};
+
 export type AppSettings = {
   lessonReminder: LessonReminderSettings;
+  /** Pro：排课时常用主题，一键填入 */
+  lessonTemplates?: string[];
 };
 
 export type AppData = {
   students: Student[];
   /** 旧数据无此字段，迁移时补默认 */
   settings?: AppSettings;
+  subscription?: SubscriptionState;
 };
