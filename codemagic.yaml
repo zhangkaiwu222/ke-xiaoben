@@ -1,9 +1,12 @@
 # Codemagic CI — 课消本 iOS 构建并发布到 TestFlight
-# 文档: https://docs.codemagic.io/yaml/building-a-react-native-app/
+# 文档: https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods/
 #
-# 前置: 在 Codemagic 团队设置 → Integrations → Developer Portal 添加 ASC API 密钥
-#       集成名称必须与下方 integrations.app_store_connect 的值一致（此处为 kexiaoben_asc）
-#       密钥需 App Manager 权限，并上传对应 Distribution 证书 + App Store provisioning profile
+# 签名方式: 环境变量自动签名（无需在 Codemagic UI 上传证书/描述文件）
+# 前置: 团队变量组 kexiaoben_asc 中包含以下加密变量:
+#   APP_STORE_CONNECT_PRIVATE_KEY    (.p8 全文)
+#   APP_STORE_CONNECT_KEY_IDENTIFIER (Key ID)
+#   APP_STORE_CONNECT_ISSUER_ID      (Issuer ID)
+#   CERTIFICATE_PRIVATE_KEY          (Distribution 证书私钥 PEM, 构建时自动创建/复用证书)
 
 workflows:
   ios-testflight:
@@ -11,14 +14,9 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
-    # ASC API 密钥在 Codemagic 团队集成里的名称
-    integrations:
-      app_store_connect: kexiaoben_asc
-
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.zhangkaiwu222.kexiaoben
+      groups:
+        - kexiaoben_asc
       vars:
         APP_STORE_APPLE_ID: 6832416586
         BUNDLE_ID: com.zhangkaiwu222.kexiaoben
@@ -62,7 +60,19 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/ios && pod install --repo-update
 
-      - name: 配置代码签名（自动匹配证书与描述文件）
+      - name: 初始化签名钥匙串
+        script: keychain initialize
+
+      - name: 从 Apple 获取/创建证书与描述文件（自动签名）
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: 将证书加入钥匙串
+        script: keychain add-certificates
+
+      - name: 配置代码签名（应用描述文件到 Xcode 工程）
         script: xcode-project use-profiles
 
       - name: 递增构建号（基于 App Store 最新版本）
@@ -87,7 +97,10 @@ workflows:
 
     publishing:
       app_store_connect:
-        auth: integration
+        # 使用环境变量中的 ASC API 密钥认证
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         # 第一步先发 TestFlight 验证，不自动提审
         submit_to_testflight: true
         submit_to_app_store: false
