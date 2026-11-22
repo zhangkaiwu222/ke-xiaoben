@@ -8,3 +8,5 @@ secrets/
 build-*.ipa
 .workbuddy/
 ios/
+.cm-research/
+poll-build.py
