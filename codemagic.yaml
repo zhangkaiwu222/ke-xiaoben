@@ -45,22 +45,20 @@ workflows:
       - name: 探测 Xcode workspace 与 scheme 名称（pod install 之后）
         script: |
           echo "--- ios 目录 ---"
-          ls -la $CM_BUILD_DIR/ios
-          WS=$(find $CM_BUILD_DIR/ios -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
+          ls -la "$CM_BUILD_DIR/ios"
+          echo "--- 所有 xcworkspace ---"
+          find "$CM_BUILD_DIR/ios" -maxdepth 2 -name "*.xcworkspace" -type d
+          echo "--- 所有共享 scheme ---"
+          find "$CM_BUILD_DIR/ios" -name "*.xcscheme"
+          # 注意: XCODE_WORKSPACE / XCODE_SCHEME 是 Codemagic 预留变量名，会被平台默认值覆盖，
+          # 因此这里使用自定义前缀 KXB_，并在构建步骤内重新计算，不依赖跨步骤传递。
+          WS=$(find "$CM_BUILD_DIR/ios" -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
           if [ -z "$WS" ]; then
             echo "错误: 未找到 xcworkspace"; exit 1
           fi
-          XCODE_WORKSPACE=$(basename "$WS" .xcworkspace)
-          echo "workspace name: $XCODE_WORKSPACE"
-          # scheme 优先取与工程名同名的共享 .xcscheme，否则用列出schemes的第一个
-          if [ -f "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE.xcodeproj/xcshareddata/xcschemes/$XCODE_WORKSPACE.xcscheme" ]; then
-            XCODE_SCHEME=$XCODE_WORKSPACE
-          else
-            XCODE_SCHEME=$(find $CM_BUILD_DIR/ios -name "*.xcscheme" | head -1 | xargs basename | sed 's/.xcscheme//')
-          fi
-          echo "XCODE_WORKSPACE=$XCODE_WORKSPACE" >> $CM_ENV
-          echo "XCODE_SCHEME=$XCODE_SCHEME" >> $CM_ENV
-          echo "探测结果: workspace=$XCODE_WORKSPACE scheme=$XCODE_SCHEME"
+          KXB_WS_NAME=$(basename "$WS" .xcworkspace)
+          echo "KXB_WS_NAME=$KXB_WS_NAME" >> $CM_ENV
+          echo "探测结果: workspace=$KXB_WS_NAME"
 
       - name: 初始化签名钥匙串
         script: keychain initialize
@@ -88,9 +86,28 @@ workflows:
 
       - name: 构建 IPA
         script: |
+          set -e
+          echo "--- 诊断: 当前环境变量 ---"
+          echo "CM_BUILD_DIR=[$CM_BUILD_DIR]"
+          echo "XCODE_WORKSPACE(平台预留)=[$XCODE_WORKSPACE]"
+          echo "KXB_WS_NAME(自定义)=[$KXB_WS_NAME]"
+          echo "--- ios 目录 ---"
+          ls -la "$CM_BUILD_DIR/ios"
+          # 直接在本步骤内计算，不依赖上一步的变量传递
+          WS_PATH=$(find "$CM_BUILD_DIR/ios" -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
+          if [ -z "$WS_PATH" ]; then
+            echo "错误: 未找到 xcworkspace"; exit 1
+          fi
+          WS_NAME=$(basename "$WS_PATH" .xcworkspace)
+          if [ -f "$CM_BUILD_DIR/ios/$WS_NAME.xcodeproj/xcshareddata/xcschemes/$WS_NAME.xcscheme" ]; then
+            SCHEME="$WS_NAME"
+          else
+            SCHEME=$(find "$CM_BUILD_DIR/ios" -name "*.xcscheme" | head -1 | xargs basename | sed 's/\.xcscheme$//')
+          fi
+          echo "最终使用: workspace=$WS_PATH scheme=$SCHEME"
           xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE.xcworkspace" \
-            --scheme "$XCODE_SCHEME"
+            --workspace "$WS_PATH" \
+            --scheme "$SCHEME"
 
     artifacts:
       - build/ios/ipa/*.ipa
