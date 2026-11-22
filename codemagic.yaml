@@ -50,9 +50,10 @@ workflows:
           find "$CM_BUILD_DIR/ios" -maxdepth 2 -name "*.xcworkspace" -type d
           echo "--- 所有共享 scheme ---"
           find "$CM_BUILD_DIR/ios" -name "*.xcscheme"
-          # 注意: XCODE_WORKSPACE / XCODE_SCHEME 是 Codemagic 预留变量名，会被平台默认值覆盖，
-          # 因此这里使用自定义前缀 KXB_，并在构建步骤内重新计算，不依赖跨步骤传递。
-          WS=$(find "$CM_BUILD_DIR/ios" -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
+          # 关键: 必须用 -maxdepth 1。maxdepth 2 会命中 Xcode 自动生成的
+          # Foo.xcodeproj/project.xcworkspace（嵌套在 xcodeproj 内部），
+          # 且 xcodeproj 字母序在 xcworkspace 之前，head -1 会错取到 "project"。
+          WS=$(find "$CM_BUILD_DIR/ios" -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
           if [ -z "$WS" ]; then
             echo "错误: 未找到 xcworkspace"; exit 1
           fi
@@ -94,7 +95,8 @@ workflows:
           echo "--- ios 目录 ---"
           ls -la "$CM_BUILD_DIR/ios"
           # 直接在本步骤内计算，不依赖上一步的变量传递
-          WS_PATH=$(find "$CM_BUILD_DIR/ios" -maxdepth 2 -name "*.xcworkspace" -type d | head -1)
+          # maxdepth 1: 排除 xcodeproj 内部的 project.xcworkspace
+          WS_PATH=$(find "$CM_BUILD_DIR/ios" -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
           if [ -z "$WS_PATH" ]; then
             echo "错误: 未找到 xcworkspace"; exit 1
           fi
